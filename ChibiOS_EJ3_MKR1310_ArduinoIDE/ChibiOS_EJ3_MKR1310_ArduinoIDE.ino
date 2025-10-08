@@ -120,7 +120,17 @@ static THD_FUNCTION(top, arg)
       SerialUSB.println(threadEffectivePeriod_ms[tid]);
     }
     SerialUSB.println();
-    
+    threadLoad_t * thdLoad = &sysLoad.threadLoad[5];
+    thdLoad->loadPerCycle_per = (100 * (float)thdLoad->ticksPerCycle) / accumTicks;
+    float targetCPU = 25.0;
+    float currentCPU = thdLoad->loadPerCycle_per;
+    SerialUSB.println(currentCPU);
+    if (currentCPU > targetCPU) {
+        for (int i = 1; i < 4; i++) threadLoad[i] += 10;
+    } else if (currentCPU < targetCPU) {
+        for (int i = 1; i < 4; i++) threadLoad[i] -= 10;
+    }
+
     // Switch the led state
     ledState = (ledState == HIGH) ? LOW : HIGH;
     digitalWrite(LED_BUILTIN, ledState);
