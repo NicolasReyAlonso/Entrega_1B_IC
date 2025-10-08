@@ -19,8 +19,9 @@
 //------------------------------------------------------------------------------
 #define USE_DOUBLE    TRUE   // Change to TRUE to use double precision (heavier)
 // Porcentaje de cpu al que se quiere llegar
-#define OBJECTIVETARGETCPU 15
-#define TARGETCPU (OBJECTIVETARGETCPU - 1) // Por como diseñe el codigo funciona mejor si se aproxima a N-1
+#define OBJECTIVECPU 15
+#define TARGETCPU (OBJECTIVECPU - 1) // Por como diseñe el codigo funciona mejor si se aproxima a N-1
+#define MAXCPU 10
 
 #define CYCLE_MS      1000
 #define NUM_THREADS   5  // Three working threads + loadEstimator (top) + 
@@ -125,16 +126,14 @@ static THD_FUNCTION(top, arg)
     SerialUSB.println();
     threadLoad_t * thdLoad = &sysLoad.threadLoad[5];
     thdLoad->loadPerCycle_per = (100 * (float)thdLoad->ticksPerCycle) / accumTicks;
-    SerialUSB.println(currentCPU);
     double error = TARGETCPU - currentCPU;   
     double factor = 0.5;                     
     double adjustment = -1*(error * factor);     
-    SerialUSB.println(adjustment);
-
-    for (int i = 1; i < 4; i++) {
-        threadLoad[i] += adjustment;
+    if (currentCPU < TARGETCPU || currentCPU > MAXCPU){
+      for (int i = 1; i < 4; i++) {
+          threadLoad[i] += adjustment;
+      }
     }
-
     // Switch the led state
     ledState = (ledState == HIGH) ? LOW : HIGH;
     digitalWrite(LED_BUILTIN, ledState);
