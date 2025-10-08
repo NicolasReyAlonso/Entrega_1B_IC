@@ -18,6 +18,9 @@
 // Parametrization
 //------------------------------------------------------------------------------
 #define USE_DOUBLE    TRUE   // Change to TRUE to use double precision (heavier)
+// Porcentaje de cpu al que se quiere llegar
+#define OBJECTIVETARGETCPU 15
+#define TARGETCPU (OBJECTIVETARGETCPU - 1) // Por como diseñe el codigo funciona mejor si se aproxima a N-1
 
 #define CYCLE_MS      1000
 #define NUM_THREADS   5  // Three working threads + loadEstimator (top) + 
@@ -30,7 +33,6 @@ char thread_name[NUM_THREADS][15] = { "top",
 
 volatile uint32_t threadPeriod_ms[NUM_THREADS] = { CYCLE_MS, 200, 100, 200, 0 };
 volatile int threadLoad[NUM_THREADS] = {0, 150, 50, 150, 0};
-volatile int epoch_inc_i = 2;
 volatile uint32_t threadEffectivePeriod_ms[NUM_THREADS] = { 0, 0, 0, 0, 0 };
 volatile uint32_t threadCycle_ms[NUM_THREADS] = { 0, 0, 0, 0, 0 };
 
@@ -123,17 +125,15 @@ static THD_FUNCTION(top, arg)
     SerialUSB.println();
     threadLoad_t * thdLoad = &sysLoad.threadLoad[5];
     thdLoad->loadPerCycle_per = (100 * (float)thdLoad->ticksPerCycle) / accumTicks;
-    double targetCPU = 24.0; //Por como diseñamos el codigo es más correcto el acercamiento si se intenta tener hasta un 86% de uso que hasta un 85%
     SerialUSB.println(currentCPU);
-double error = targetCPU - currentCPU;   
-double factor = 0.5;                     
+    double error = TARGETCPU - currentCPU;   
+    double factor = 0.5;                     
+    double adjustment = -1*(error * factor);     
+    SerialUSB.println(adjustment);
 
-double adjustment = -1*(error * factor);     
-SerialUSB.println(adjustment);
-
-for (int i = 1; i < 4; i++) {
-    threadLoad[i] += adjustment;
-}
+    for (int i = 1; i < 4; i++) {
+        threadLoad[i] += adjustment;
+    }
 
     // Switch the led state
     ledState = (ledState == HIGH) ? LOW : HIGH;
