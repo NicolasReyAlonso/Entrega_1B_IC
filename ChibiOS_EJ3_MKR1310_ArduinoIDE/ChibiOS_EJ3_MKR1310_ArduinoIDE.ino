@@ -30,7 +30,7 @@ char thread_name[NUM_THREADS][15] = { "top",
 
 volatile uint32_t threadPeriod_ms[NUM_THREADS] = { CYCLE_MS, 200, 100, 200, 0 };
 volatile int threadLoad[NUM_THREADS] = {0, 150, 50, 150, 0};
-
+volatile int epoch_inc_i = 2;
 volatile uint32_t threadEffectivePeriod_ms[NUM_THREADS] = { 0, 0, 0, 0, 0 };
 volatile uint32_t threadCycle_ms[NUM_THREADS] = { 0, 0, 0, 0, 0 };
 
@@ -105,7 +105,7 @@ static THD_FUNCTION(top, arg)
       thdLoad->ticksTotal = ticks;
       accumTicks += thdLoad->ticksPerCycle;
     }
-    
+    float currentCPU;
     for (int tid = 1; tid < NUM_THREADS; tid++) {
       threadLoad_t * thdLoad = &sysLoad.threadLoad[tid];
       thdLoad->loadPerCycle_per = (100 * (float)thdLoad->ticksPerCycle) / accumTicks;
@@ -113,7 +113,8 @@ static THD_FUNCTION(top, arg)
       SerialUSB.print("  ticks(last cycle): ");
       SerialUSB.print(thdLoad->ticksPerCycle);
       SerialUSB.print("  CPU(%): ");
-      SerialUSB.print(thdLoad->loadPerCycle_per);
+      currentCPU = thdLoad->loadPerCycle_per;
+      SerialUSB.print(currentCPU);
       SerialUSB.print("   Cycle duration(ms): ");
       SerialUSB.print(threadCycle_ms[tid]);
       SerialUSB.print("  period(ms): ");
@@ -122,8 +123,7 @@ static THD_FUNCTION(top, arg)
     SerialUSB.println();
     threadLoad_t * thdLoad = &sysLoad.threadLoad[5];
     thdLoad->loadPerCycle_per = (100 * (float)thdLoad->ticksPerCycle) / accumTicks;
-    float targetCPU = 25.0;
-    float currentCPU = thdLoad->loadPerCycle_per;
+    double targetCPU = 25.0;
     SerialUSB.println(currentCPU);
     if (currentCPU > targetCPU) {
         for (int i = 1; i < 4; i++) threadLoad[i] += 10;
