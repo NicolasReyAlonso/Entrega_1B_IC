@@ -123,13 +123,17 @@ static THD_FUNCTION(top, arg)
     SerialUSB.println();
     threadLoad_t * thdLoad = &sysLoad.threadLoad[5];
     thdLoad->loadPerCycle_per = (100 * (float)thdLoad->ticksPerCycle) / accumTicks;
-    double targetCPU = 25.0;
+    double targetCPU = 24.0; //Por como diseñamos el codigo es más correcto el acercamiento si se intenta tener hasta un 86% de uso que hasta un 85%
     SerialUSB.println(currentCPU);
-    if (currentCPU > targetCPU) {
-        for (int i = 1; i < 4; i++) threadLoad[i] += 10;
-    } else if (currentCPU < targetCPU) {
-        for (int i = 1; i < 4; i++) threadLoad[i] -= 10;
-    }
+double error = targetCPU - currentCPU;   
+double factor = 0.5;                     
+
+double adjustment = -1*(error * factor);     
+SerialUSB.println(adjustment);
+
+for (int i = 1; i < 4; i++) {
+    threadLoad[i] += adjustment;
+}
 
     // Switch the led state
     ledState = (ledState == HIGH) ? LOW : HIGH;
