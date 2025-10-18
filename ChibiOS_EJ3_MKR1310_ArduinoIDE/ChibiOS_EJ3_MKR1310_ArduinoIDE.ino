@@ -22,6 +22,11 @@
 #define OBJECTIVECPU 15
 #define TARGETCPU (OBJECTIVECPU - 1) // Por como diseñe el codigo funciona mejor si se aproxima a N-1
 #define MAXCPU 10
+// Ruido con pin 5 hasta 3 seg máximo
+#define NOISE_TRIGGER_PIN       5
+#define NOISE_MIN_PERCENT       15
+#define NOISE_MAX_PERCENT       60
+#define NOISE_MAX_LIFETIME_MS   3000
 
 #define CYCLE_MS      1000
 #define NUM_THREADS   5  // Three working threads + loadEstimator (top) + 
@@ -53,6 +58,59 @@ typedef struct {
 } systemLoad_t;
 
 systemLoad_t sysLoad;
+
+
+static THD_WORKING_AREA(waNoiseWorker, 256);
+static thread_t* noiseThreadPtr = NULL;   // puntero global a la hebra de ruido
+volatile float currentCPU_global = 0;
+
+// --- Hebra de ruido: pone carga hasta que se estabiliza la CPU o 3 segundos ---
+static THD_FUNCTION(noise_worker, arg) {
+  (void)arg;
+  SerialUSB.println("Hebra de ruido creada");
+
+  systime_t start = chVTGetSystemTimeX();
+
+  while (true) {
+    for (int tid = 1; tid <= 3; tid++) {
+      int pct = NOISE_MIN_PERCENT + random(NOISE_MAX_PERCENT - NOISE_MIN_PERCENT + 1);
+
+      chSysLock();
+      int base = threadLoad[tid];
+      if (base <= 0) base = 5;
+      int delta = (base * pct) / 100;
+      threadLoad[tid] = base + delta;
+      chSysUnlock();
+
+      SerialUSB.print("  +");
+      SerialUSB.print(delta);
+      SerialUSB.print(" iters en ");
+      SerialUSB.println(thread_name[tid]);
+    }
+
+    chThdSleepMilliseconds(300);
+
+    chSysLock();
+    for (int tid = 1; tid <= 3; tid++) {
+      threadLoad[tid] = (int)(threadLoad[tid] * 0.9);
+    }
+    chSysUnlock();
+
+    systime_t now = chVTGetSystemTimeX();
+    uint32_t elapsed_ms = TIME_I2MS(now - start);
+    float cpu = currentCPU_global;
+
+    if (cpu < TARGETCPU || elapsed_ms > NOISE_MAX_LIFETIME_MS) {
+      SerialUSB.print("Ruido finalizado tras ");
+      SerialUSB.print(elapsed_ms);
+      SerialUSB.println(" ms\n");
+      break;
+    }
+  }
+
+  noiseThreadPtr = NULL;
+  chThdExit(MSG_OK);
+}
 
 //------------------------------------------------------------------------------
 // Load estimator (top)
@@ -124,6 +182,12 @@ static THD_FUNCTION(top, arg)
       SerialUSB.println(threadEffectivePeriod_ms[tid]);
     }
     SerialUSB.println();
+
+    currentCPU_global = currentCPU;
+    if (digitalRead(NOISE_TRIGGER_PIN) == LOW && noiseThreadPtr == NULL) {
+      noiseThreadPtr = chThdCreateStatic(waNoiseWorker, sizeof(waNoiseWorker),NORMALPRIO, noise_worker, NULL);
+    }
+
     threadLoad_t * thdLoad = &sysLoad.threadLoad[5];
     thdLoad->loadPerCycle_per = (100 * (float)thdLoad->ticksPerCycle) / accumTicks;
     double error = TARGETCPU - currentCPU;   
@@ -261,6 +325,8 @@ void setup()
   SerialUSB.println("Hit any key + ENTER to start ...");
   while(!SerialUSB.available()) { delay(10); }
   
+  pinMode(NOISE_TRIGGER_PIN, INPUT_PULLUP);
+
   // Initialize OS and then call chSetup.
   // chBegin() never returns. Loop() is invoked directly from chBegin()
   chBegin(chSetup);
