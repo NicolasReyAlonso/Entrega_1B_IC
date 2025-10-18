@@ -158,6 +158,10 @@ static THD_FUNCTION(top, arg)
     float currentCPU;
     for (int tid = 1; tid < NUM_THREADS; tid++) {
       threadLoad_t * thdLoad = &sysLoad.threadLoad[tid];
+
+      //saltar ruido si no está activo
+      if (tid == 4 && thdLoad->ticksPerCycle == 0) continue;
+
       thdLoad->loadPerCycle_per = (100 * (float)thdLoad->ticksPerCycle) / accumTicks;
       SerialUSB.print(thread_name[tid]);
       SerialUSB.print("  ticks(last cycle): ");
@@ -190,7 +194,7 @@ static THD_FUNCTION(top, arg)
         noiseThreadPtr = chThdCreateStatic(waNoiseWorker, sizeof(waNoiseWorker),
                                           NORMALPRIO, noise_worker, NULL);
         sysLoad.threadLoad[4].thd = noiseThreadPtr; // Registra la hebra
-        threadLoad[5] = 200;
+        threadLoad[4] = 300;
     }
   }
 }
