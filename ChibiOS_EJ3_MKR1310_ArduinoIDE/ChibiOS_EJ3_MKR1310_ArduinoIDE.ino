@@ -1,6 +1,6 @@
 /* ======================================================================= *\
- *  Ejemplo ChibiOS-3
- *  Este ejemplo muestra cómo estimar la carga computacional de cada hebra
+ *  Segunda entrega de IC
+ *  Este ejercicio muestra cómo balancear la carga
  *  
  *  IMPORTANTE: en ChRt/src/rt/templates/chconf.h
  *    - CH_DBG_THREADS_PROFILING debe activarse (TRUE) 
@@ -10,7 +10,9 @@
  *    https://github.com/greiman/ChRt
  *    
  *  Asignatura (GII-IoT)
+ *  @author: Nicolás Rey Alonso, Jose
 \* ======================================================================= */ 
+
 #include <ChRt.h>
 #include <math.h>
 
