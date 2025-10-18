@@ -84,9 +84,8 @@ static THD_FUNCTION(noise_worker, arg) {
 
     systime_t now = chVTGetSystemTimeX();
     uint32_t elapsed_ms = TIME_I2MS(now - start);
-    float cpu = currentCPU_global;
 
-    if (cpu < TARGETCPU || elapsed_ms > NOISE_MAX_LIFETIME_MS) {
+    if (elapsed_ms > NOISE_MAX_LIFETIME_MS) {
       chSysLock();
       threadLoad[4] = 0; // la deja sin carga
       chSysUnlock();
