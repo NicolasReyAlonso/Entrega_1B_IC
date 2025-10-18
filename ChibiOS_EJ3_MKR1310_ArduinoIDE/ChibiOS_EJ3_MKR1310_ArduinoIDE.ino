@@ -29,18 +29,19 @@
 #define NOISE_MAX_LIFETIME_MS   3000
 
 #define CYCLE_MS      1000
-#define NUM_THREADS   5  // Three working threads + loadEstimator (top) + 
+#define NUM_THREADS   6  // Three working threads + loadEstimator (top) + 
                          // loop (as the idle thread)
                          // TOP thread is thread with id 0
 
 char thread_name[NUM_THREADS][15] = { "top", 
-                                       "worker_1", "worker_2", "worker_3",
-                                       "idle" };
+                                      "worker_1", "worker_2", "worker_3",
+                                      "noise", "idle" };
 
-volatile uint32_t threadPeriod_ms[NUM_THREADS] = { CYCLE_MS, 200, 100, 200, 0 };
-volatile int threadLoad[NUM_THREADS] = {0, 150, 50, 150, 0};
-volatile uint32_t threadEffectivePeriod_ms[NUM_THREADS] = { 0, 0, 0, 0, 0 };
-volatile uint32_t threadCycle_ms[NUM_THREADS] = { 0, 0, 0, 0, 0 };
+
+volatile uint32_t threadPeriod_ms[NUM_THREADS] = { CYCLE_MS, 200, 100, 200, 200, 0 };
+volatile int threadLoad[NUM_THREADS] = {0, 150, 50, 150, 0, 0};
+volatile uint32_t threadEffectivePeriod_ms[NUM_THREADS] = { 0, 0, 0, 0, 0, 0};
+volatile uint32_t threadCycle_ms[NUM_THREADS] = { 0, 0, 0, 0, 0, 0 };
 
 // Struct to measure the cpu load using the ticks consumed by each thread
 typedef struct {
@@ -72,40 +73,26 @@ static THD_FUNCTION(noise_worker, arg) {
   systime_t start = chVTGetSystemTimeX();
 
   while (true) {
-    for (int tid = 1; tid <= 3; tid++) {
-      int pct = NOISE_MIN_PERCENT + random(NOISE_MAX_PERCENT - NOISE_MIN_PERCENT + 1);
-
-      chSysLock();
-      int base = threadLoad[tid];
-      if (base <= 0) base = 5;
-      int delta = (base * pct) / 100;
-      threadLoad[tid] = base + delta;
-      chSysUnlock();
-
-      SerialUSB.print("  +");
-      SerialUSB.print(delta);
-      SerialUSB.print(" iters en ");
-      SerialUSB.println(thread_name[tid]);
-    }
-
+    int niter = threadLoad[4];
+    double num = 10;
+    for (int iter = 0; iter < niter; iter++) {
+      num = exp(num) / (1 + exp(num));
+}
     chThdSleepMilliseconds(300);
-
-    chSysLock();
-    for (int tid = 1; tid <= 3; tid++) {
-      threadLoad[tid] = (int)(threadLoad[tid] * 0.9);
-    }
-    chSysUnlock();
 
     systime_t now = chVTGetSystemTimeX();
     uint32_t elapsed_ms = TIME_I2MS(now - start);
     float cpu = currentCPU_global;
 
     if (cpu < TARGETCPU || elapsed_ms > NOISE_MAX_LIFETIME_MS) {
-      SerialUSB.print("Ruido finalizado tras ");
-      SerialUSB.print(elapsed_ms);
-      SerialUSB.println(" ms\n");
-      break;
-    }
+      chSysLock();
+      threadLoad[4] = 0; // la deja sin carga
+      chSysUnlock();
+        SerialUSB.print("Ruido finalizado tras ");
+        SerialUSB.print(elapsed_ms);
+        SerialUSB.println(" ms\n");
+        break;
+      }
   }
 
   noiseThreadPtr = NULL;
@@ -184,23 +171,25 @@ static THD_FUNCTION(top, arg)
     SerialUSB.println();
 
     currentCPU_global = currentCPU;
-    if (digitalRead(NOISE_TRIGGER_PIN) == LOW && noiseThreadPtr == NULL) {
-      noiseThreadPtr = chThdCreateStatic(waNoiseWorker, sizeof(waNoiseWorker),NORMALPRIO, noise_worker, NULL);
-    }
-
-    threadLoad_t * thdLoad = &sysLoad.threadLoad[5];
-    thdLoad->loadPerCycle_per = (100 * (float)thdLoad->ticksPerCycle) / accumTicks;
+    
     double error = TARGETCPU - currentCPU;   
     double factor = 0.5;                     
     double adjustment = -1*(error * factor);     
     if (currentCPU < TARGETCPU || currentCPU > MAXCPU){
-      for (int i = 1; i < 4; i++) {
+      for (int i = 1; i <= 4; i++) {
           threadLoad[i] += adjustment;
+
       }
     }
     // Switch the led state
     ledState = (ledState == HIGH) ? LOW : HIGH;
     digitalWrite(LED_BUILTIN, ledState);
+    if (digitalRead(NOISE_TRIGGER_PIN) == LOW && noiseThreadPtr == NULL) {
+        noiseThreadPtr = chThdCreateStatic(waNoiseWorker, sizeof(waNoiseWorker),
+                                          NORMALPRIO, noise_worker, NULL);
+        sysLoad.threadLoad[4].thd = noiseThreadPtr; // Registra la hebra
+        threadLoad[5] = 200;
+    }
   }
 }
 
@@ -297,7 +286,7 @@ void chSetup()
     NORMALPRIO + 1, worker, (void *)3);
 
   // This thread ID
-  sysLoad.threadLoad[4].thd = chThdGetSelfX();
+  sysLoad.threadLoad[5].thd = chThdGetSelfX();
 }
 
 //------------------------------------------------------------------------------
