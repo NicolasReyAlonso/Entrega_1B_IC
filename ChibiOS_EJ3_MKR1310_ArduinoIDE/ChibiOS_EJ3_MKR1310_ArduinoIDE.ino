@@ -10,7 +10,7 @@
  *    https://github.com/greiman/ChRt
  *    
  *  Asignatura (GII-IoT)
- *  @author: Nicolás Rey Alonso, Jose
+ *  @author: Nicolás Rey Alonso, José Manuel Díaz Hernández
 \* ======================================================================= */ 
 
 #include <ChRt.h>
@@ -28,7 +28,7 @@
 #define NOISE_TRIGGER_PIN       5
 #define NOISE_MIN_PERCENT       15
 #define NOISE_MAX_PERCENT       60
-#define NOISE_MAX_LIFETIME_MS   3000
+#define NOISE_MAX_LIFETIME_MS   10000
 
 #define CYCLE_MS      1000
 #define NUM_THREADS   6  // Three working threads + loadEstimator (top) + 
